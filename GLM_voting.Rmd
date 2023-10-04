@@ -1,0 +1,620 @@
+---
+title: "GLM: What factors influence voting behavior of people in Finland?"
+author: "Victoria Bolotova"
+date: "10 05 2022"
+output: 
+    html_document:
+      theme: cosmo
+      code_folding: show
+      toc: true
+      toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Literature review
+
+**Voting turnout**
+
+Electoral turnout is one of the main factors determining the functioning of a democratic system. If the turnout is low, the effectiveness of elections as a democratic mechanism is reduced. Therefore, scientists are very concerned about the political part and turnout. In our little study, we would like to focus on political turnout and what variables can influence whether a person participates in elections or not. To do this, we will take several control variables, such as age, gender and education, as well as explanatory variables related to trust in specific politicians, the legal system in general and parliament, as well as interest in politics in general. We are going to focus again on Finland, a European country with democratic political regime.
+
+**Voting turnout and age**
+
+There has been found a relationship between voting behavior and age: younger generations behave differently from the older ones. The difference is party explained by the historical contexts of socialization, but also a general influence in the changing values and patterns of behavior with the age. Despite the difference in choice (there are some ideas that older generations are more likely to chose conservative candidates and parties), a voting turnout is also a matter of age: in the general elections in the USA, the younger people of age between 18-24 were the lowest category in number. The highest numbers are usually older people aged above 65 (https://www.bbc.co.uk/bitesize/guides/zd9bd6f/revision/5). In the recent years, though, the number of the young voters has been increasing while the number of aged voters stayed the same. This may be explained both by theories political participation and the notion of disengagement of the aged (Cumming & Henry). However, the situation might also be influenced by the political situation I the country as well as other factors. In the general elections in the UK in 2017, for example, the turnout was the highest thanks to the younger voters and minorities, half of which appeared at the elections (https://www.theguardian.com/politics/datablog/ng-interactive/2017/jun/20/young-voters-class-and-turnout-how-britain-voted-in-2017).
+
+**Voting turnout and gender** 
+
+According to center of American women and politics, there is a gender gap in voting turnout: female turnout tends to be higher on elections since 1980s, though, the gender gap decreases in the non presidential-election years, which is interesting. However, if we consider Europe, across the EU28, participation in national elections is mostly gender-equal (IDEA, 2016), though, in some years the number of female voters is slightly lower. There are several reasons behind, such as low level of political knowledge and low interest in formal politics among women. Many parties and companies now provides a new way for parties to reach out to women voters and to prospective women voters (Claire McGing, https://www.europarl.europa.eu/cmsdata/161888/McGing%20C.pdf, which positively influence female turnout.
+
+**Voting turnout and education**
+
+There is almost no debate among researchers on the influence of education on political participations: the more educated groups have a higher turnout rate (Jackson 1995; Sondheimer & Green 2010). The reasons, though are not well studied. However, there are some opposite opinions: Steven Tenn (2007) argues that he found that «an additional year of schooling has very little impact on voter turnout». The discrepancy might hide in the other factors that decrease the effect of education on voting participation.
+
+**Voting turnout and interest in politics**
+
+Almost every research focused on the political behaviour includes this variable into the model (Ivan Šiber 2004; Luskin 1990; Prior 2010 ). There is no surprise that people who are more interested in politics are more likely to participate in voting, however, Kevin Denny and Orla Doyle (2008), cognitive scientists, argued that there are cognitive factors such as comprehension ability and an level of aggressiveness of personality have a moderate impact on the voting behaviour. Also, there has been found an effect of vote over-reporting of the politically interested people (Goldberg & Sciarini 2022).
+
+**Voting turnout and trust**
+
+Some researchers claim that while the trust in democracy and politics system exists, there is no dependence between trust in particular political actors and vote turnout, as the the actors can be easily changed. Gronlund and Steal argued that «trust in parliament and satisfaction with democracy increase turnout, whereas trust in politicians has a smaller impact on turnout, and satisfaction with the incumbent government does not affect turnout at all» (Grönlund & Setälä 2007)
+
+# Description of variables of our study
+
+- Dependent variable
+  - vote - *Voted last national election*
+
+  
+- Independent variables, explanatory ones
+  - polintr - *How interested in politics*
+  - trstplt - *Trust in politicians*
+  - trstlgl - *Trust in the legal system*
+  - trstprl - *Trust in country's parliament*
+  - poltran - *Government in country takes into account the interests of all citizens*
+
+  
+- Independent variables, control ones
+  - gndr - *Gender*
+  - agea - *Age*
+  - eduyrs - *Years of full-time education completed*
+
+# Data preprocessing
+
+## Reading data
+
+```{r}
+library(ggplot2)
+library(haven)
+library(dplyr)
+df <- read_sav("ESS9e03.1_F1.sav")
+df <- df %>% haven::as_factor()
+
+df <- df %>% dplyr::filter(cntry == "Finland") %>% 
+  dplyr::select(vote, trstplt, polintr, trstlgl, trstprl, poltran, agea, gndr, eduyrs)
+```
+
+Filter out data to include only people who answered "Yes" or "No".
+
+Thus, we exclude people who answered "Not eligible to vote", "Refusal", "Don't know".
+
+```{r}
+df <- df %>% dplyr::filter(df$vote %in% c("Yes", "No")) 
+df$vote <- droplevels(df$vote)
+```
+
+
+## Transformation of variables into correct type
+
+```{r}
+df$trstplt <- as.numeric(as.factor(df$trstplt))
+df$trstlgl <- as.numeric(as.factor(df$trstlgl))
+df$trstprl <- as.numeric(as.factor(df$trstprl))
+df$agea <- as.numeric(as.character(df$agea))
+df$eduyrs <- as.numeric(as.character(df$eduyrs))
+```
+
+
+# Descritive statistics
+
+## Visualization of variables 
+
+### Voting
+
+```{r}
+voting_barplot  <- df %>% 
+  group_by(vote) %>% 
+ dplyr::summarize(count = n()) %>%  
+ mutate(percentage = count/sum(count)) 
+
+ggplot(voting_barplot, aes(x = vote, y = percentage, fill = vote)) + 
+  geom_bar(stat='identity') + 
+  geom_text(aes(label=scales::percent(percentage)), position = position_stack(vjust = .5)) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x="Voted last national election", 
+       y="",
+       title="Voting distribution in data") +
+  scale_fill_manual("Gender", values = c('#a4c3b2', '#ffb5a7')) + 
+  theme_classic() + 
+  theme(legend.position="none")
+```
+
+
+* The number of people who have voted last national election is almost 7 times higher than those who haven't.
+
+### Gender
+
+
+```{r}
+sex_barplot  <- df %>% 
+  group_by(gndr) %>% 
+ dplyr::summarize(count = n()) %>%  
+ mutate(percentage = count/sum(count)) 
+
+ggplot(sex_barplot, aes(x = gndr, y = percentage, fill = gndr)) + 
+  geom_bar(stat='identity') + 
+  geom_text(aes(label=scales::percent(percentage)), position = position_stack(vjust = .5)) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x="Gender", 
+       y="",
+       title="Gender distribution in data") +
+  scale_fill_manual("Gender", values = c('#c1d3fe', '#ffb5a7')) + 
+  theme_classic() + 
+  theme(legend.position="none")
+```
+
+* The number of females and males in the sample is close to be equal. However, the number of females a bit exceeds the number of males. 
+
+### Age
+
+```{r}
+library(ggplot2)
+ggplot(df, aes(agea)) +
+  geom_histogram(fill = "#fcbf49", bins = 5) +
+  labs(title = "Respondents' age",
+       x = "Age", 
+       y = "") + 
+  scale_fill_manual("e9c46a") +
+  theme_classic()
+```
+
+```{r}
+library(psych)
+describe(df$agea)
+```
+
+* The median value of age equals to 55, and it is close to the mean estimate of the age. Thus, distribution is close to be normal. Average person in the sample is aged about 54 years old. 
+
+
+### Years of full-time education completed
+
+
+```{r}
+ggplot(df, aes(eduyrs)) +
+  geom_histogram(fill = "#fcbf49", bins = 5) +
+  labs(title = "Respondents' years of full-time education completed",
+       x = "Years of education", 
+       y = "") + 
+  scale_fill_manual("e9c46a") +
+  theme_classic()
+```
+
+```{r}
+describe(df$eduyrs)
+```
+
+* As we can see from the descriptive statistics of this variable, the median number of years of full-time education is 14 years. This estimate is close to the mean value. Average person in the sample have 14 years of full-time education. 
+If we take a look at the histogram of this variable, we will be able to see that distribution is leptokurtic. 
+
+### Trust in politicians
+
+```{r}
+trustpol_barplot  <- df %>% 
+  group_by(trstplt) %>% 
+ dplyr::summarize(count = n()) %>%  
+ mutate(percentage = round(count/sum(count),2))
+
+ggplot(trustpol_barplot, aes(x = trstplt, y = percentage, fill = trstplt)) + 
+  geom_bar(stat='identity', fill = "#fcbf49") + 
+  geom_text(aes(label=scales::percent(percentage)), position = position_stack(vjust = .5)) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x="", 
+       y="",
+       title="Reported levels of trust in politicians") + 
+  theme_classic() + 
+  theme(legend.position="none")
+```
+
+```{r}
+describe(df$trstplt)
+```
+
+* The median of this variable distribution is 6, which is rather close to the mean (5.82). Average person in the sample rather trustful to country's politicians. 
+If we have a look at the barplot of this variable distribution we will see that it is not normal but rather negatively skewed.
+
+### Trust in country's parliament
+
+```{r}
+trstprl_barplot  <- df %>% 
+  group_by(trstprl) %>% 
+ dplyr::summarize(count = n()) %>%  
+ mutate(percentage = round(count/sum(count),2))
+
+ggplot(trstprl_barplot, aes(x = trstprl, y = percentage, fill = trstprl)) + 
+  geom_bar(stat='identity', fill = "#fcbf49") + 
+  geom_text(aes(label=scales::percent(percentage)), position = position_stack(vjust = .5)) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x="", 
+       y="",
+       title="Reported levels of trust in country's parliament") + 
+  theme_classic() + 
+  theme(legend.position="none")
+```
+
+```{r}
+describe(df$trstprl)
+```
+
+* The median value of trustfulness to country parlament equals to 7, which is rather close to the the mean - 6.84. So, on average people in the sample trust country's parlament.
+The distribution graph of this variable demonstrates that distribution is rather negatively skewed. 
+
+### Trust in legal system
+
+```{r}
+trstlgl_barplot  <- df %>% 
+  group_by(trstlgl) %>% 
+ dplyr::summarize(count = n()) %>%  
+ mutate(percentage = round(count/sum(count),2))
+
+ggplot(trstlgl_barplot, aes(x = trstlgl, y = percentage, fill = trstlgl)) + 
+  geom_bar(stat='identity', fill = "#fcbf49") + 
+  geom_text(aes(label=scales::percent(percentage)), position = position_stack(vjust = .5)) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x="", 
+       y="",
+       title="Reported levels of trust in legal system") + 
+  theme_classic() + 
+  theme(legend.position="none")
+```
+
+```{r}
+describe(df$trstlgl)
+```
+
+* The median estimate of trust in legal system across all sample equals to 9, which is very high. However, the mean value is lower and equals to 8.16. 
+We actually can see also from the plot that distribution is far to be normal, it has very negative skew. 
+
+### How interested in politics 
+
+
+```{r}
+interest_barplot  <- df %>% 
+  group_by(polintr) %>% 
+ dplyr::summarize(count = n()) %>%  
+ mutate(percentage = count/sum(count)) 
+
+ggplot(interest_barplot, aes(x = polintr, y = percentage, fill = polintr)) + 
+  geom_bar(stat='identity') + 
+  geom_text(aes(label=scales::percent(percentage)), position = position_stack(vjust = .5)) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x="Gender", 
+       y="",
+       title="Gender distribution in data") +
+  scale_fill_manual("Gender", values = c('#6b9080', '#a4c3b2', '#f77f00', '#e63946')) + 
+  theme_classic() + 
+  theme(legend.position="none")
+```
+
+
+```{r}
+df$polintr <- droplevels(df$polintr)
+```
+
+Most people are quite interested in politics, next group of people in terms of the size is those who are hardly interested. Group of people who are not at all interested is the smallest.
+
+
+## Visualization of relationships
+
+### Voting and gender of respondents
+
+```{r}
+voting_gender_barplot  <- df %>% 
+  group_by(gndr, vote) %>% 
+ dplyr::summarize(count = n()) %>%  
+ mutate(percentage = count/sum(count))
+
+
+ggplot(voting_gender_barplot, aes(x = gndr, y = percentage, fill =  vote)) +
+  geom_bar(position = "dodge", stat="identity", alpha = 0.7) +
+   labs(title = "Voting for males and females", x = "Gender", y = " ") + 
+   scale_fill_manual("Voted last election", values = c('#99d98c', '#e63946')) +
+geom_text(aes(label=scales::percent(percentage)), position = position_dodge(width=0.9), vjust=-0.25) + 
+  scale_y_continuous(labels = scales::percent) +
+theme_classic()
+```
+
+* As we can see from the plot, among the number of people who voted last national election the number of women is a bit prevailing a number of men. 
+
+
+### Voting and age of respondents
+
+```{r}
+ggplot(df, aes(x = df$vote, y = df$agea)) +
+geom_boxplot() +
+stat_summary(fun.y = mean, geom = "point", shape = 4, size = 4) +
+  labs(title = "Age and voting last national election", y = "Age", x = "Voted last election") + 
+theme_classic() 
+```
+
+* As for age distribution of people voting and not voting last national election, the following trend could be observed: among younger people in Finland there are more people who preferred to not vote, compared to older finns. 
+
+
+### Voting and years of full-time education completed
+
+
+```{r}
+ggplot(df, aes(x = df$vote, y = df$eduyrs)) +
+geom_boxplot() +
+stat_summary(fun.y = mean, geom = "point", shape = 4, size = 4) +
+  labs(title = "Education and voting last national election", y = "Years of full-time education completed", x = "Voted last election") + 
+theme_classic() 
+```
+
+* In general, among people with fewer years of full-time education completed there are more people who did not vote last national election, compared to people who have more years of full-time education voted more.
+
+
+### Voting and interest in politics
+
+```{r}
+voting_interest_barplot  <- df %>% 
+  group_by(polintr, vote) %>% 
+ dplyr::summarize(count = n()) %>%  
+ mutate(percentage = round(count/sum(count),2))
+
+
+ggplot(voting_interest_barplot, aes(x = polintr, y = percentage, fill = vote)) +
+  geom_bar(position = "dodge", stat="identity", alpha = 0.7) +
+   labs(title = "Association between interest in politics and voting", x = " ", y = " ") + 
+   scale_fill_manual("Voted last election", values = c('#99d98c', '#e63946')) +
+geom_text(aes(label=scales::percent(percentage)), position = position_dodge(width=0.9), vjust=-0.25) + 
+  scale_y_continuous(labels = scales::percent) +
+theme_classic()
+```
+
+* According to the barplot above, we can observe the following: most of the people across all of the levels of interest in politics have voted on last national election in Finland. However, the proportions of voter/non-voters still varies among all of these categories: people who are not interested at all or hardly interested in politics tended not to vote more than those who are quite and very interested in politics. 
+
+### Voting and trust in politicians
+
+```{r}
+ggplot(df, aes(x = df$vote, y = df$trstplt)) +
+geom_boxplot() +
+stat_summary(fun.y = mean, geom = "point", shape = 4, size = 4) +
+  labs(title = "Trust in politicians and voting last national election", y = "Trust in politicians", x = "Voted last election") + 
+theme_classic() 
+```
+
+* Box-plot above shows that there is a difference in trust in politicians among groups of voters and non-voters: people who voted last national elections in Finland on average have higher trust in politicians than those who didn't vote. The median of trustfulness in politicians among non-voters is lower but difference is not that big.
+
+### Voting and trust in the legal system
+
+```{r}
+ggplot(df, aes(x = df$vote, y = df$trstlgl)) +
+geom_boxplot() +
+stat_summary(fun.y = mean, geom = "point", shape = 4, size = 4) +
+theme_classic() +
+  labs(title = "Trust in the legal system and voting last national election", y = "Trust in the legal system", x = "Voted last election") + 
+theme_classic() 
+```
+
+* As for the level of trust in legal system, there is also observed difference between groups of voters and non-voters: in general, those who voted on last national election in Finland reported higher trust in the legal system than those who didn't vote. The median across both voters and non-voters is quite close but it is smaller for non-voters. Also, here we can see outliers in both groups that indicate that among voters (and non-voters) there were people who estimated their level of trust in legal system as very low.  
+
+### Voting and trust in country's parliament
+
+```{r}
+ggplot(df, aes(x = df$vote, y = df$trstprl)) +
+geom_boxplot() +
+stat_summary(fun.y = mean, geom = "point", shape = 4, size = 4) +
+  labs(title = "Trust in country's parliament and voting last national election", y = "Trust in the country's parliament", x = "Voted last election") +
+theme_classic() 
+```
+
+* Proceeding to the relationship between voting last national election and trustfulness in country's parliament the following could be mentioned: on average among those people who voted last national election the level of trust in country's parliament is higher than among non-voters. However, the medians between both groups is close to each other but for those who didn't vote it is lower. 
+
+# Binary logistic regressions 
+
+## Logit models
+
+Recode answers "No" and "Yes" to 0 and 1 correspondingly:
+
+```{r}
+df$vote <- dplyr::recode(df$vote, "No" = "0", "Yes" = "1")
+df$vote  <- relevel(df$vote , ref = "0")
+df$gndr = droplevels(df$gndr) # Delete category "No answer"
+df$polintr = droplevels(df$polintr) # Delete category "No answer"
+```
+
+### Log-Odds
+
+```{r}
+library(sjPlot)
+
+labs = c("Constant", "Age", 
+         "Gender (Female)",
+         "Years of full-time education completed", 
+         "How interested in politics (Quite interested)",
+         "How interested in politics (Hardly interested)",
+         "How interested in politics (Not at all interested)",
+         "Trust in politicians", 
+         "Trust in the legal system",
+         "Trust in country's parliament")
+
+
+
+model_logit <- glm(vote ~  agea + gndr + eduyrs + polintr + trstplt + trstlgl + trstprl, family = binomial(link = logit), data = df)
+
+tab_model(model_logit, transform = NULL, pred.labels = labs, title = "Table 1. Log-Odds", dv.labels = "Voted last national election")
+```
+
+*Intercept* equals to -3.3, it is the log of odds ratio of voting last national election. It is statistically significant as the p-value less than 0.05 (its value is < 0.001). This value of -3.3 the log of odds ratio of voting in accordance to 0 or reference category of categorical variables. (The reference category is “No" - did not vote last national elections).
+
+- Control variables:
+  - Age: The log of odds ratio of voting over not voting increases by 0.04 with each year of age (p < 0.001).
+  - Gender: The log of odds ratio of voting over not voting is higher by 0.36 for female, compared to male (p < 0.04).
+  - Years of full-time education completed: The log of odds ratio of voting over not voting increases by 0.15 with each year of education (p < 0.001).
+
+- Categories of *How interested in politics*:
+
+  - Finns who reported that they are *quite interested* in politics do not significantly differ from those who are *very interested* in politics in the probability of voting (p = 0.4).
+  
+  - The log of odds ratio of voting over not voting is lower by 1.23 for those who are *hardly interested* in politics compared to those who are *very interested* in politics in the probability of voting (p = 0.002).
+  
+  - The log of odds ratio of voting over not voting is lower by 2.20 for those who are *not at all interested* in politics compared to those who are *very interested* in politics in the probability of voting (p < 0.001).
+  
+- Trust in...
+  - Trust in politicians do not affect the probability of voting (p = 0.25). 
+  - Log of odds ratio of voting over not voting increases by 0.12 with each unit increase in trust in the legal system (p = 0.01).
+  - Log of odds ratio of voting over not voting increases by 0.2 with each unit increase in trust in country's parliament (p = 0.002).
+  
+
+### Odds ratio
+
+```{r}
+tab_model(model_logit, pred.labels = labs, title = "Table 2. Odds ratio", dv.labels = "Voted last national election")
+```
+
+- Control variables:
+  - Age: The odds of voting increases by 4% with each year of age.
+  - Gender: The odds of voting are higher by 43% for female, compared to male. 
+  - Years of full-time education completed: The odds of voting increases by 16% with each year of education completed.
+
+- Categories of *How interested in politics*:
+
+  - Finns who reported that they are *quite interested* in politics do not significantly differ from those who are *very interested* in politics in the probability of voting.
+  
+  - The odds of voting are lower by 71% for those who are *hardly interested* in politics compared to those who are *very interested* in politics.
+  
+  - The odds of voting are lower by 89% for those who are *not at all interested* in politics compared to those who are *very interested* in politics. 
+  
+- Trust in...
+  - Trust in politicians do not affect the probability of voting. 
+  - The odds of voting increases by 13% with each unit increase in trust in the legal system.
+  - The odds of voting increases by 22% with each unit increase in trust in country's parliament.
+
+### Margins 
+
+Now we would like to interpret margins of significant effects:
+
+```{r}
+library(kableExtra)
+library(margins)
+summary(margins(model_logit)) %>%
+  kbl(caption = "Table 3. Margins of logit model") %>%
+  kable_styling(full_width = F, position = "left") 
+```
+
+- Control variables:
+  - Age: On average the probability of voting increases by 0.4% with each year of age
+  - Years of full-time education completed: On average the probability of voting increases by 1.4% with each year of education
+  - Gender: On average for female the probability of voting is 3.2% greater compared to male.
+
+- Categories of *How interested in politics*:
+
+  - On average for those who are *hardly interested* in politics the probability of voting is 10% lower compared to those who are *very interested* in politics.
+  
+  - On average for those who are *not at all interested* in politics the probability of voting is 25% lower compared to those who are *very interested* in politics.
+  
+- Trust in...
+  - On average the probability of voting increases by 1% with each unit increase in trust in the legal system.
+  - On average the probability of voting increases by 2% with each unit increase in trust in  country's parliament.
+  
+### Model fit 
+
+**PseudoR2**
+
+```{r}
+library(DescTools)
+PseudoR2(model_logit) %>%
+  kbl() %>%
+  kable_styling(full_width = F, position = "left")
+```
+
+As we can see, McFadden value is 0.2 (should be between 0.2 and 0.4). It is not perfect but could be considered as satisfied as the result is very close to threshold, models' independent variables explain variation of probability of voting in some extent.
+
+**Correctly predicted values**
+
+```{r}
+library(pscl)
+hitmiss(model_logit)
+```
+
+* As we can see model predicted that only 31 citizens of Finland voted last national election, however, the actual number of voted people is about 6 times higher. Thus, this model predicted correctly only 16% of people among voters. Such poor result can be explained by class imbalance -  the number of people who have voted last national election is almost 7 times higher than those who haven’t. 
+
+* Model is good only at predicting voters (98%). Model incorrectly classified 19 voters as non-voters, but other 1347 were identified correctly. 
+
+* The overall quality of the model is 88.2%. It is very close to null model, unfortunately.
+
+## Probit models
+
+### Probit model
+
+```{r}
+m_probit <- glm(vote ~ agea + gndr + eduyrs + polintr + trstplt + trstlgl + trstprl, family = binomial(link = probit), data = df)
+tab_model(m_probit, transform = NULL, pred.labels = labs, string.est = "Estimate", title = "Table 4. Probit model", dv.labels = "Voted last national election")
+```
+
+
+Intercept equals to -1.7, it is z-score of probability of voting last national election. It is statistically significant as the p-value less than 0.05 (its value is < 0.001). This value of -1.7 assumes voting level with the baseline of “No" - did not vote last national elections, when all the predictors equals to 0.
+
+- Control variables:
+  - Age is statistically significant: the p-value less than 0.05 (its value is < 0.001). Z-score of probability of voting increases by 0.02 with each additional year of age.
+  - Gender (Female) is not statistically significant according to p-value: 0.052 > 0.05. We cannot observe differences of Z-scores voting probabilities between men and women.
+  - Years of full-time education completed is statistically significant as the p-value less than 0.05 (its value is < 0.001). Z-score of probability of voting increases by 0.08 with each additional year of education.
+
+- Categories of *How interested in politics*: 
+  - **How interested in politics** variable has two significant levels "Hardly interested" and 'Not at all interested' ( their p-values are 0.001 and <0.001). 'Quite interested' category is not statistically significant: the p-value 0.315 > 0.05.Thus, Z-score of probability of voting among those who are 'Hardly interested' is lower by 0.69 comparing to those who are 'Very interested' (reference category); and probability of voting is lower by 1.26 people who are 'Not at all interested' in politics in comparison with those who are 'Very interested'.
+
+- Trust in...
+  - **Trust in politicians** predictor is not statistically significant according to p-value: 0.272 > 0.05. We cannot claim the difference in Z-score voting probability depending on level of people's trust in politicians.
+  - **Trust in the legal system** is statistically significant: the p-value less than 0.05 (its value is 0.009). Z-score of probability of voting increases by 0.07 with each additional unit of trust in the legal system.
+  - **Trust in country's parliament** is statistically significant: the p-value less than 0.05 (its value is 0.002). Z-score of probability of voting increases by 1.1 with each additional unit of trust in country's parliament.
+
+### Margins
+
+```{r}
+summary(margins(m_probit)) %>%
+  kbl(caption = "Table 5. Margins of probit model") %>%
+  kable_styling(full_width = F, position = "left") 
+```
+
+- Control variables:
+  - **Age:** with each year of age probability of voting in elections increases by 0.4%.
+  - **Years of full-time education completed:** with each year of educational probability of voting in elections increases by 1.38%.
+
+- Categories of *How interested in politics*: 
+  - **How interested in politics (Hardly interested):** for those who 'Hardly interested ' in politics probability of voting is 10.69% less compared to those who are 'Very interested'.
+  - **How interested in politics (Not at all interested):** for those who 'Not at all interested' in politics probability of voting is 25.66% less compared to those who are 'Very interested'.
+
+- Trust in...
+  - **Trust in the legal system:** with each additional unit of trust in the legal system estimation probability of voting in elections increases by 1.14%.
+  - **Trust in country's parliament:** with each additional unit of trust in country's parliament probability of voting in elections increases by 1.72%.
+
+### Model fit
+
+**PseudoR2**
+
+```{r}
+PseudoR2(m_probit) %>%
+  kbl() %>%
+  kable_styling(full_width = F, position = "left")
+```
+
+McFadden value is 0.2 (should be between 0.2 and 0.4). PseudoR2 is the same for both probit and logit models.
+
+**Correctly predicted values**
+
+```{r}
+hitmiss(m_probit)
+```
+
+* The result is similar to classification of logit model, but a little bit different.
+* This model is a little bit worse at predicting those who did not participate in election - it correctly predicted only 15% of non-voters, when the logit model predicted correctly 16% of non-voters. 
+* But when logit model predicted incorrectly 19 voters as non-voters, this model predicted 18 voters as non-voters.
+* In general, the model correctly predicts 88.1%. It is very close to null model, unfortunately (87.4%).
+
+# Summary
+
+* The results of the present small study corresponds to previous findings in the field. 
+
+* The level of interest in politics is the strongest predictor (according to margins) of participation in voting. 
+
+* Also, trust in the legal system and in country's parliament are significant predictors of participation in voting. 
+
+* However, trust in politicians does not significantly influence on the probability to vote, which also corresponds to our literature review: *"there is no dependence between trust in particular political actors and vote turnout, as the the actors can be easily changed"*. 
+
+* All control variables (age, gender, education) showed significant influence on the probability of voting in logit model. In probit model gender was not significant predictor. 
+
+* As for education, it corresponds to previous findings as well: *"the more educated groups have a higher turnout rate"*. Female have higher probability on voting, compared to male. And, finally, with each year of age, people have higher probability to participate in voting. 
+
+
+
+
